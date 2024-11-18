@@ -592,6 +592,7 @@ class Arbiter(object):
         self.cfg.pre_fork(self, worker)
         pid = os.fork()
         if pid != 0:
+            ''' Parent '''
             worker.pid = pid
             self.WORKERS[pid] = worker
             return pid
@@ -605,7 +606,7 @@ class Arbiter(object):
         try:
             util._setproctitle("worker [%s]" % self.proc_name)
             self.log.info("Booting worker with pid: %s", worker.pid)
-            self.cfg.post_fork(self, worker)
+            self.cfg.post_fork(self, worker) 
             worker.init_process()
             sys.exit(0)
         except SystemExit:
@@ -637,7 +638,7 @@ class Arbiter(object):
         This is where a worker process leaves the main loop
         of the master process.
         """
-
+        
         for _ in range(self.num_workers - len(self.WORKERS)):
             self.spawn_worker()
             time.sleep(0.1 * random.random())

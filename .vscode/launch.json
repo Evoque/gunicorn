@@ -5,11 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Module",
+            "name": "-> gunicorn",
             "type": "debugpy",
             "request": "launch",
             "module": "gunicorn", 
             "args": [
+                "-w",
+                "4",
                 "practise.index:app"
             ]
         }
