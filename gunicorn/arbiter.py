@@ -591,12 +591,13 @@ class Arbiter(object):
                                    self.cfg, self.log)
         self.cfg.pre_fork(self, worker)
         pid = os.fork()
+        # Parent 
         if pid != 0:
-            ''' Parent '''
             worker.pid = pid
             self.WORKERS[pid] = worker
             return pid
 
+        # Child
         # Do not inherit the temporary files of other workers
         for sibling in self.WORKERS.values():
             sibling.tmp.close()

@@ -11,7 +11,7 @@
             "module": "gunicorn", 
             "args": [
                 "-w",
-                "4",
+                "1",
                 "practise.index:app"
             ]
         }
