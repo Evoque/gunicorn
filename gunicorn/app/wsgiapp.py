@@ -44,6 +44,7 @@ class WSGIApplication(Application):
             else:
                 raise ConfigError("No application module specified.")
 
+    # @TODO import_app 到底干了啥
     def load_wsgiapp(self):
         return util.import_app(self.app_uri)
 
@@ -63,8 +64,9 @@ def run(prog=None):
     The ``gunicorn`` command line runner for launching Gunicorn with
     generic WSGI applications.
     """
-    from gunicorn.app.wsgiapp import WSGIApplication
-    WSGIApplication("%(prog)s [OPTIONS] [APP_MODULE]", prog=prog).run()
+    # from gunicorn.app.wsgiapp import WSGIApplication
+    wsgi = WSGIApplication("%(prog)s [OPTIONS] [APP_MODULE]", prog=prog)
+    wsgi.run()
 
 
 if __name__ == '__main__':

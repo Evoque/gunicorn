@@ -16,4 +16,5 @@ MANIFEST
 nohup.out
 setuptools-*
 
+venv/*
 practise/venv/*

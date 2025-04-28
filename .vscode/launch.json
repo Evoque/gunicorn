@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "-> gunicorn",
+            "name": "-> gunicorn[venv]",
             "type": "debugpy",
             "request": "launch",
             "module": "gunicorn", 
@@ -13,6 +13,17 @@
                 "-w",
                 "1",
                 "practise.index:app"
+            ]
+        },
+        {
+            "name": "-> gunicorn[local]",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gunicorn",
+            "args": [
+                "-w",
+                "2",
+                "examples.index:app"
             ]
         }
     ]

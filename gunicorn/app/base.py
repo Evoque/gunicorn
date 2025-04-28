@@ -69,7 +69,9 @@ class BaseApplication(object):
 
     def run(self):
         try:
-            Arbiter(self).run()
+            at = Arbiter(self)
+            at.run()
+            # Arbiter(self).run()
         except RuntimeError as e:
             print("\nError: %s\n" % e, file=sys.stderr)
             sys.stderr.flush()
