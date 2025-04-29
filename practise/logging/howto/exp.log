@@ -1,0 +1,7 @@
+ERROR-2025-04-28 19:54:48,657 And non-ASCII stuff, too, like Øresund and Malmö
+
+ERROR-2025-04-28 19:54:48,657 ValueError ---
+Traceback (most recent call last):
+  File "/Users/jj/Desktop/dev/python/gunicorn-mastery/practise/logging/howto.py", line 26, in <module>
+    raise ValueError('这是一个模拟的错误')
+ValueError: 这是一个模拟的错误
