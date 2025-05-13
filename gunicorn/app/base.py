@@ -22,6 +22,7 @@ class BaseApplication(object):
     def __init__(self, usage=None, prog=None):
         self.usage = usage
         self.cfg = None
+        # app => examples.index:app
         self.callable = None
         self.prog = prog
         self.logger = None

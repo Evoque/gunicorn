@@ -359,8 +359,10 @@ def _called_with_wrong_args(f):
         # https://docs.python.org/2/library/sys.html#sys.exc_info
         del tb
 
-
 def import_app(module):
+    """
+    :param module: The custom app, like: ``practise.index:app``
+    """
     parts = module.split(":", 1)
     if len(parts) == 1:
         obj = "application"
