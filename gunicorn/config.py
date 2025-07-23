@@ -139,6 +139,7 @@ class Config(object):
     @property
     def proc_name(self):
         pn = self.settings['proc_name'].get()
+
         if pn is not None:
             return pn
         else:
@@ -582,7 +583,8 @@ class Bind(Setting):
     if 'PORT' in os.environ:
         default = ['0.0.0.0:{0}'.format(os.environ.get('PORT'))]
     else:
-        default = ['127.0.0.1:8000']
+        # default = ['127.0.0.1:8000']
+        default = ['0.0.0.0:9898']
 
     desc = """\
         The socket to bind.

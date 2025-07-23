@@ -101,6 +101,7 @@ class Worker(object):
         util.seed()
 
         # For waking ourselves up
+        # @TODO 有意思，还不懂
         self.PIPE = os.pipe()
         for p in self.PIPE:
             util.set_non_blocking(p)

@@ -1,1 +1,0 @@
-# gunicorn中如何实现多个worker(process)写一份日志文件的

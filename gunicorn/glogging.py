@@ -392,6 +392,12 @@ class Logger(object):
                         handler.release()
 
     def close_on_exec(self):
+        """
+        防止日志文件描述符泄漏到子进程中：
+        1. 防止描述符泄漏：当主进程fork出工作进程并执行新代码时，所有日志文件不会被意外继承
+        2. 资源隔离：确保主进程和工作进程各自管理自己的日志文件描述符
+        3. 避免竞争条件：防止多个进程同时写入同一个日志文件导致的问题
+        """
         for log in loggers():
             for handler in log.handlers:
                 if isinstance(handler, logging.FileHandler):

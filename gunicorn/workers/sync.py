@@ -34,6 +34,7 @@ class SyncWorker(base.Worker):
     def wait(self, timeout):
         try:
             self.notify()
+            # self.wait_fds = self.sockets + [self.PIPE[0]]
             ret = select.select(self.wait_fds, [], [], timeout)
             if ret[0]:
                 if self.PIPE[0] in ret[0]:

@@ -255,12 +255,18 @@ def parse_address(netloc, default_port='8000'):
     return host.lower(), port
 
 
+"""
+@TODO CSAPP 不懂啊
+当进程调用fork()创建子进程后，所有`打开的`文件描述符默认都会被复制到子进程。
+设置`FD_CLOEXEC`标志确保当子进程执行新程序时(通过exec()系列调用)，这些文件描述符不会保留在新程序中。
+作用: 1. 防止资源泄漏; 2. 确保进程隔离; 3. 避免多个进程访问同一文件描述符导致的竞态条件。
+"""
 def close_on_exec(fd):
     flags = fcntl.fcntl(fd, fcntl.F_GETFD)
     flags |= fcntl.FD_CLOEXEC
     fcntl.fcntl(fd, fcntl.F_SETFD, flags)
 
-
+# @TODO CSAPP 不懂啊
 def set_non_blocking(fd):
     flags = fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK
     fcntl.fcntl(fd, fcntl.F_SETFL, flags)
@@ -272,7 +278,7 @@ def close(sock):
     except socket.error:
         pass
 
-
+os.O_RDONLY
 try:
     from os import closerange
 except ImportError:

@@ -10,6 +10,8 @@
             "request": "launch",
             "module": "gunicorn", 
             "args": [
+                "-p",
+                "/run/my.pid",
                 "-w",
                 "1",
                 "practise.index:app"

@@ -38,6 +38,11 @@ class Arbiter(object):
     LISTENERS = []
     WORKERS = {}
     PIPE = []
+    
+    '''
+    master:  -   HUP QUIT INT TERM TTIN TTOU USR1 USR2 WINCH
+    worker: ABRT HUP QUIT INT TERM  -    -   USR1 USR2 WINCH CHLD
+    '''
 
     # I love dynamic languages
     SIG_QUEUE = []
@@ -52,6 +57,9 @@ class Arbiter(object):
     )
 
     def __init__(self, app):
+        """
+        :param app: WSGIApplication instance
+        """
         os.environ["SERVER_SOFTWARE"] = SERVER_SOFTWARE
 
         self._num_workers = None
@@ -90,7 +98,6 @@ class Arbiter(object):
         self: gunicorn.arbiter.Arbiter
         app:  gunicorn.app.wsgiapp.WSGIApplication
         """
-
         self.app = app
         self.cfg = app.cfg
 
@@ -118,7 +125,6 @@ class Arbiter(object):
                 )
             )
         )
-
         # set enviroment' variables
         if self.cfg.env:
             for k, v in self.cfg.env.items():
@@ -133,7 +139,8 @@ class Arbiter(object):
         Initialize the arbiter. Start listening and set pidfile if needed.
         """
         self.log.info("Starting gunicorn %s", __version__)
-
+        
+        # 这里是为了在'子进程'中设置'master_pid'
         if "GUNICORN_PID" in os.environ:
             self.master_pid = int(os.environ.get("GUNICORN_PID"))
             self.proc_name = self.proc_name + ".2"
@@ -159,9 +166,10 @@ class Arbiter(object):
                     systemd.SD_LISTEN_FDS_START,
                     systemd.SD_LISTEN_FDS_START + listen_fds,
                 )
-
+            # 有父进程
             elif self.master_pid:
                 fds = []
+                # 只有子进程的情况才会有，即父级把LISTENERS中的fileno记录到了environ中
                 for fd in os.environ.pop("GUNICORN_FD").split(","):
                     fds.append(int(fd))
 
@@ -199,12 +207,23 @@ class Arbiter(object):
         # initialize all signals
         for s in self.SIGNALS:
             signal.signal(s, self.signal)
+        # SIGCHLD需要立即处理，不像其他信号排队
         signal.signal(signal.SIGCHLD, self.handle_chld)
 
     def signal(self, sig, frame):
         if len(self.SIG_QUEUE) < 5:
             self.SIG_QUEUE.append(sig)
             self.wakeup()
+            
+    def wakeup(self):
+        """\
+        Wake up the arbiter by writing to the PIPE
+        """
+        try:
+            os.write(self.PIPE[1], b".")
+        except IOError as e:
+            if e.errno not in [errno.EAGAIN, errno.EINTR]:
+                raise
 
     def run(self):
         "Main master loop."
@@ -339,15 +358,6 @@ class Arbiter(object):
             # reset proctitle
             util._setproctitle("master [%s]" % self.proc_name)
 
-    def wakeup(self):
-        """\
-        Wake up the arbiter by writing to the PIPE
-        """
-        try:
-            os.write(self.PIPE[1], b".")
-        except IOError as e:
-            if e.errno not in [errno.EAGAIN, errno.EINTR]:
-                raise
 
     def halt(self, reason=None, exit_status=0):
         """halt arbiter"""
@@ -372,6 +382,7 @@ class Arbiter(object):
             ready = select.select([self.PIPE[0]], [], [], 1.0)
             if not ready[0]:
                 return
+            
             while os.read(self.PIPE[0], 1):
                 pass
         except (select.error, OSError) as e:
@@ -527,8 +538,13 @@ class Arbiter(object):
         try:
             while True:
                 wpid, status = os.waitpid(-1, os.WNOHANG)
+                
+                # 0 - 没有要回收的子进程
                 if not wpid:
                     break
+                
+                # wpid != 0, 即这里self.reexec_pid 也是非零的状态
+                # @TODO: 为什么要设置为0
                 if self.reexec_pid == wpid:
                     self.reexec_pid = 0
                 else:
@@ -536,23 +552,28 @@ class Arbiter(object):
                     # that it could not boot, we'll shut it down to avoid
                     # infinite start/stop cycles.
                     exitcode = status >> 8
+                    
+                    # status是16位number
+                    # lower-8-bits: SIGNUMBER, higher-8-bits: error code, such as 1
                     if exitcode != 0:
-                        self.log.error(
-                            "Worker (pid:%s) exited with code %s", wpid, exitcode
-                        )
+                        self.log.error("Worker (pid:%s) exited with code %s", wpid, exitcode)
+                        
                     if exitcode == self.WORKER_BOOT_ERROR:
                         reason = "Worker failed to boot."
                         raise HaltServer(reason, self.WORKER_BOOT_ERROR)
+                    
                     if exitcode == self.APP_LOAD_ERROR:
                         reason = "App failed to load."
                         raise HaltServer(reason, self.APP_LOAD_ERROR)
+                    
+                    if exitcode == 0 and status > 0:
+                        pass
 
+                    # @TODO: 这里的log信息和552行重复了，应该把这一行去掉。尝试提交一个PR(往上看)
                     if exitcode > 0:
                         # If the exit code of the worker is greater than 0,
                         # let the user know.
-                        self.log.error(
-                            "Worker (pid:%s) exited with code %s.", wpid, exitcode
-                        )
+                        self.log.error("Worker (pid:%s) exited with code %s.", wpid, exitcode)
                     elif status > 0:
                         # If the exit code of the worker is 0 and the status
                         # is greater than 0, then it was most likely killed
@@ -579,15 +600,16 @@ class Arbiter(object):
 
     def manage_workers(self):
         """\
-        Maintain the number of workers by spawning or killing
-        as required.
+        Maintain the number of workers by spawning or killing as required.
         """
         if len(self.WORKERS) < self.num_workers:
             self.spawn_workers()
 
         workers = self.WORKERS.items()
+        # 按age正序排列
         workers = sorted(workers, key=lambda w: w[1].age)
         while len(workers) > self.num_workers:
+            # workers pop了,但是self.WORKERS并没有pop, 待waitpid之后，再处理self.WORKERS
             (pid, _) = workers.pop(0)
             self.kill_worker(pid, signal.SIGTERM)
 
@@ -616,18 +638,21 @@ class Arbiter(object):
         )
         self.cfg.pre_fork(self, worker)
         pid = os.fork()
-        # Parent
+        
+        # Parent(Arbiter) Process, pid(not 0) is child's(worker) pid
+        # Arbiter记录相应的子进程(worker)信息后，退出此函数
         if pid != 0:
             worker.pid = pid
             self.WORKERS[pid] = worker
             return pid
 
-        # Child
+        ''' 下面的代码子进程(worker)继续执行 (fork得到的pid为0) '''
         # Do not inherit the temporary files of other workers
+        # 'self.WORKERS' is not include itself (record in the main process)
         for sibling in self.WORKERS.values():
             sibling.tmp.close()
 
-        # Process Child
+        # Process Child,pid is 0, only use `os.getpid()`
         worker.pid = os.getpid()
         try:
             util._setproctitle("worker [%s]" % self.proc_name)
@@ -661,13 +686,18 @@ class Arbiter(object):
         """\
         Spawn new workers as needed.
 
-        This is where a worker process leaves the main loop
-        of the master process.
+        This is where a worker process leaves the main loop of the master process.
         """
-
         for _ in range(self.num_workers - len(self.WORKERS)):
             self.spawn_worker()
             time.sleep(0.1 * random.random())
+        """\
+        time.sleep
+        1. 避免惊群效应(thundering herd problem)：比如同时accept socket、同时访问数据库、同时加载应用等
+        2. 减少系统压力峰值：避免所有woker在同一时刻做同样的初始化操作，减轻系统负载的瞬间峰值
+        3. 提升稳定性：在高并发或资源有限的环境下，错开启动可以减少启动失败、端口冲突、文件句柄耗尽等情况。
+        """
+            
 
     def kill_workers(self, sig):
         """\
