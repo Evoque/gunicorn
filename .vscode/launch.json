@@ -27,6 +27,12 @@
                 "2",
                 "examples.index:app"
             ]
+        },
+        {
+            "name": "-> gunicorn[learn]",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "gunicorne.config",
         }
     ]
 }
